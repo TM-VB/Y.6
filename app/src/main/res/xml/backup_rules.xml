@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+   Sample backup rules file; uncomment and customize as necessary.
+   See https://developer.android.com/guide/topics/data/autobackup
+   for details.
+   Note: This file is ignored for devices older than API 31
+   See https://developer.android.com/about/versions/12/backup-restore
+-->
+<full-backup-content>
+    <!-- Exclude encrypted cookie payloads and local database from full backup -->
+    <exclude domain="sharedpref" path="cookie_security_prefs.xml" />
+    <exclude domain="database" path="download_videos_db" />
+    <exclude domain="database" path="download_videos_db-wal" />
+    <exclude domain="database" path="download_videos_db-shm" />
+</full-backup-content>

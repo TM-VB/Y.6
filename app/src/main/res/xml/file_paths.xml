@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Restrict cache sharing strictly to downloaded media temp directories -->
+    <cache-path name="downloads_temp" path="downloads_temp/" />
+    <cache-path name="ytdlp_downloads" path="ytdlp_downloads/" />
+
+    <!-- External storage media directories for downloaded videos and music -->
+    <external-path name="external_download_videos" path="DownloadVideos/" />
+    <external-path name="external_downloads" path="Download/" />
+    <external-path name="external_movies" path="Movies/" />
+    <external-path name="external_music" path="Music/" />
+    <external-files-path name="external_app_files" path="DownloadVideos/" />
+    <external-cache-path name="external_cache_media" path="downloads/" />
+</paths>

@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-and-test:
+    name: Build & Test (JDK 17)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Platforms & Build Tools
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-34" "platforms;android-35" "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradlew executable
+        run: chmod +x gradlew
+
+      - name: Prepare Debug Keystore
+        run: |
+          if [ ! -f "debug.keystore" ] && [ -f "debug.keystore.base64" ]; then
+            echo "Decoding debug.keystore from repository base64..."
+            base64 -d debug.keystore.base64 > debug.keystore
+          fi
+
+      - name: Ensure Environment Configuration
+        run: |
+          if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+            echo "Creating .env from .env.example for clean environment build..."
+            cp .env.example .env
+          fi
+
+      - name: Prepare Google Services Configuration
+        run: |
+          if [ -n "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
+            echo "Writing Google Services configuration from secret..."
+            echo "${{ secrets.GOOGLE_SERVICES_JSON }}" > app/google-services.json
+          elif [ ! -f "app/google-services.json" ]; then
+            echo "Generating CI-safe Google Services configuration for testing..."
+            cat << 'EOF' > app/google-services.json
+          {
+            "project_info": {
+              "project_number": "123456789000",
+              "project_id": "ci-test-project",
+              "storage_bucket": "ci-test-project.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:123456789000:android:abcdef0123456789",
+                  "android_client_info": {
+                    "package_name": "com.aistudio.videodownloader.app"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyDummyKeyForCiTestingOnly12345678"
+                  }
+                ],
+                "services": {}
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+          fi
+
+      - name: Clean Gradle build
+        run: ./gradlew clean --stacktrace
+
+      - name: Run App Unit & Robolectric tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
+      - name: Run Root Unit tests
+        run: ./gradlew test --stacktrace
+
+      - name: Assemble Debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Verify Release Signing Task Configuration
+        run: ./gradlew :app:help --task verifyReleaseSigning
+
+  verify-release-readiness:
+    name: Verify Release Signing Readiness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Release Secrets Status
+        env:
+          HAS_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' }}
+          HAS_STORE_PASS: ${{ secrets.RELEASE_STORE_PASSWORD != '' }}
+          HAS_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS != '' }}
+          HAS_KEY_PASS: ${{ secrets.RELEASE_KEY_PASSWORD != '' }}
+        run: |
+          echo "Release Signing Readiness Check (without exposing secret values):"
+          echo "  RELEASE_KEYSTORE_BASE64 configured: $HAS_KEYSTORE"
+          echo "  RELEASE_STORE_PASSWORD configured: $HAS_STORE_PASS"
+          echo "  RELEASE_KEY_ALIAS configured: $HAS_KEY_ALIAS"
+          echo "  RELEASE_KEY_PASSWORD configured: $HAS_KEY_PASS"
+          if [ "$HAS_KEYSTORE" = "true" ] && [ "$HAS_STORE_PASS" = "true" ] && [ "$HAS_KEY_ALIAS" = "true" ] && [ "$HAS_KEY_PASS" = "true" ]; then
+            echo "All production release signing credentials are configured."
+          else
+            echo "Notice: Release signing secrets are not fully configured on this ref. Release builds will require secrets when tags are published."
+          fi
