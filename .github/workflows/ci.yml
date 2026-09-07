@@ -32,7 +32,7 @@ jobs:
       - name: Install Android Platforms & Build Tools
         run: |
           yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-34" "platforms;android-35" "platforms;android-36" "build-tools;35.0.0"
+          sdkmanager "platforms;android-34" "platforms;android-35" "platforms;android-36" "platforms;android-36.1" "build-tools;35.0.0" "build-tools;36.0.0"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -91,15 +91,18 @@ jobs:
           fi
 
       - name: Clean Gradle build
+        env:
+          GRADLE_OPTS: "-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
         run: ./gradlew clean --stacktrace
 
       - name: Run App Unit & Robolectric tests
+        env:
+          GRADLE_OPTS: "-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
         run: ./gradlew :app:testDebugUnitTest --stacktrace
 
-      - name: Run Root Unit tests
-        run: ./gradlew test --stacktrace
-
       - name: Assemble Debug APK
+        env:
+          GRADLE_OPTS: "-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
         run: ./gradlew :app:assembleDebug --stacktrace
 
       - name: Verify Release Signing Task Configuration
